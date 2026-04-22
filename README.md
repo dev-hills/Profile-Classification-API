@@ -1,167 +1,90 @@
-# Profile Classification API
+# Insighta Labs — Profiles API
 
-A backend service built with NestJS that integrates multiple external APIs, processes demographic data, stores results in a PostgreSQL database, and exposes a REST API for managing profiles.
-
----
-
-## 🚀 Features
-
-- Accepts a name and generates profile data using external APIs
-- Integrates:
-  - [Genderize API](https://genderize.io)
-  - [Agify API](https://agify.io)
-  - [Nationalize API](https://nationalize.io)
-- Stores processed profiles in PostgreSQL
-- Prevents duplicate entries (idempotency)
-- Supports filtering, retrieval, and deletion
-- Strict error handling with standardized responses
-- CORS enabled for external access
+A demographic intelligence REST API for querying, filtering, sorting, paginating, and performing natural language searches on user profile data. Built for analytics and segmentation use cases.
 
 ---
 
-## 🏗️ Tech Stack
+## Tech Stack
 
-| Layer         | Technology      |
-| ------------- | --------------- |
-| Framework     | NestJS          |
-| ORM           | TypeORM         |
-| Database      | PostgreSQL      |
-| HTTP Client   | Axios           |
-| ID Generation | UUID v7         |
-| Validation    | Class-validator |
+- **Framework**: NestJS
+- **ORM**: TypeORM
+- **Database**: PostgreSQL
+- **HTTP Client**: Axios
+- **IDs**: UUID v7
 
 ---
 
-## 📡 Base URL
+## Base URL
 
 ```
-https://check-name-gender2.vercel.app/
+https://check-name-gender2.vercel.app
 ```
 
 ---
 
-## 📌 API Endpoints
+## Features at a Glance
 
-### 1. Create Profile
-
-**`POST /api/profiles`**
-
-Creates a profile using external APIs and stores it in the database.
-
-**Request Body**
-
-```json
-{
-  "name": "ella"
-}
-```
-
-**Success Response `201`**
-
-```json
-{
-  "status": "success",
-  "data": {
-    "id": "uuid-v7",
-    "name": "ella",
-    "gender": "female",
-    "gender_probability": 0.99,
-    "sample_size": 1234,
-    "age": 46,
-    "age_group": "adult",
-    "country_id": "US",
-    "country_probability": 0.85,
-    "created_at": "2026-04-01T12:00:00Z"
-  }
-}
-```
-
-**Duplicate Name Response `200`**
-
-```json
-{
-  "status": "success",
-  "message": "Profile already exists",
-  "data": { "...existing profile" }
-}
-```
-
-**Error Responses**
-
-| Status | Description          | Response                                                                           |
-| ------ | -------------------- | ---------------------------------------------------------------------------------- |
-| `400`  | Bad Request          | `{ "status": "error", "message": "Name is required" }`                             |
-| `422`  | Unprocessable Entity | `{ "status": "error", "message": "Name must contain only alphabetic characters" }` |
-| `502`  | External API Failure | `{ "status": "502", "message": "Genderize returned an invalid response" }`         |
+| Feature | Description |
+|---|---|
+| Profile Creation | Enriches names using genderize.io, agify.io, nationalize.io |
+| Advanced Filtering | Multi-criteria AND-logic filtering |
+| Sorting | Sort by age, created_at, or gender_probability |
+| Pagination | Page/limit controls (max 50 per page) |
+| Natural Language Search | Rule-based query parsing (no AI/LLM) |
+| Data Seeding | Idempotent seeding of 2026 profile records |
 
 ---
 
-### 2. Get Single Profile
+## Endpoints
 
-**`GET /api/profiles/:id`**
+### Get All Profiles
+
+```
+GET /api/profiles
+```
+
+**Query Parameters**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `gender` | string | `male` or `female` |
+| `country_id` | string | ISO country code (e.g. `NG`) |
+| `age_group` | string | `child`, `teenager`, `adult`, `senior` |
+| `min_age` | number | Minimum age filter |
+| `max_age` | number | Maximum age filter |
+| `min_gender_probability` | float | Minimum confidence score for gender |
+| `min_country_probability` | float | Minimum confidence score for country |
+| `sort_by` | string | `age`, `created_at`, `gender_probability` |
+| `order` | string | `asc` or `desc` |
+| `page` | number | Page number (default: `1`) |
+| `limit` | number | Results per page (default: `10`, max: `50`) |
+
+**Example Request**
+
+```
+GET /api/profiles?gender=male&country_id=NG&min_age=25&sort_by=age&order=desc&page=1&limit=10
+```
 
 **Success Response**
 
 ```json
 {
   "status": "success",
-  "data": {
-    "id": "uuid",
-    "name": "emmanuel",
-    "gender": "male",
-    "gender_probability": 0.99,
-    "sample_size": 1234,
-    "age": 25,
-    "age_group": "adult",
-    "country_id": "NG",
-    "country_probability": 0.85,
-    "created_at": "2026-04-01T12:00:00Z"
-  }
-}
-```
-
-**Error Response**
-
-```json
-{ "status": "error", "message": "Profile not found" }
-```
-
----
-
-### 3. Get All Profiles
-
-**`GET /api/profiles`**
-
-**Optional Query Parameters**
-
-| Parameter    | Description         |
-| ------------ | ------------------- |
-| `gender`     | Filter by gender    |
-| `country_id` | Filter by country   |
-| `age_group`  | Filter by age group |
-
-> Filtering is case-insensitive.
-
-**Example**
-
-```
-GET /api/profiles?gender=male&country_id=NG
-```
-
-**Response**
-
-```json
-{
-  "status": "success",
-  "count": 2,
+  "page": 1,
+  "limit": 10,
+  "total": 2026,
   "data": [
     {
-      "id": "id-1",
-      "name": "john",
+      "id": "uuid-v7",
+      "name": "emmanuel",
       "gender": "male",
-      "age": 30,
+      "gender_probability": 0.99,
+      "age": 34,
       "age_group": "adult",
-      "country_id": "NG"
+      "country_id": "NG",
+      "country_name": "Nigeria",
+      "country_probability": 0.85,
+      "created_at": "2026-04-01T12:00:00Z"
     }
   ]
 }
@@ -169,85 +92,145 @@ GET /api/profiles?gender=male&country_id=NG
 
 ---
 
-### 4. Delete Profile
-
-**`DELETE /api/profiles/:id`**
-
-**Success Response**
+### Natural Language Search
 
 ```
-204 No Content
+GET /api/profiles/search?q=
 ```
 
-**Error Response**
+Parses a plain-English query string into structured filters using rule-based logic — no AI or LLM involved.
 
-```json
-{ "status": "error", "message": "Profile not found" }
+**Example Request**
+
+```
+GET /api/profiles/search?q=young males from nigeria
 ```
 
----
-
-## Business Logic
-
-### Age Group Classification
-
-| Age Range | Group      |
-| --------- | ---------- |
-| 0 – 12    | `child`    |
-| 13 – 19   | `teenager` |
-| 20 – 59   | `adult`    |
-| 60+       | `senior`   |
-
-### Country Selection
-
-- Uses the Nationalize API
-- Selects the country with the highest probability
-
-### Idempotency Rule
-
-If a name already exists in the database:
-
-- A new record is **not** created
-- The existing profile is returned
-
----
-
-## External API Error Handling
-
-If any external API fails or returns invalid data, a `502` response is returned.
-
-| API         | Invalid Condition            |
-| ----------- | ---------------------------- |
-| Genderize   | `gender: null` or `count: 0` |
-| Agify       | `age: null`                  |
-| Nationalize | Empty country list           |
-
-**Response**
+**Resolved Filters**
 
 ```json
 {
-  "status": "502",
-  "message": "ExternalApi returned an invalid response"
+  "gender": "male",
+  "min_age": 16,
+  "max_age": 24,
+  "country_id": "NG"
 }
+```
+
+**Supported Query Patterns**
+
+*Gender*
+
+| Phrase | Filter |
+|---|---|
+| `male` | `gender = male` |
+| `female` | `gender = female` |
+
+*Age*
+
+| Phrase | Filter |
+|---|---|
+| `young` | `min_age = 16, max_age = 24` |
+| `teenager` / `teens` | `age_group = teenager` |
+| `adult` | `age_group = adult` |
+| `senior` | `age_group = senior` |
+| `above X` | `min_age = X` |
+| `under X` | `max_age = X` |
+
+*Country*
+
+| Phrase | ISO Code |
+|---|---|
+| `nigeria` | `NG` |
+| `kenya` | `KE` |
+| `angola` | `AO` |
+| `benin` | `BJ` |
+| `ghana` | `GH` |
+
+**Error Response** (uninterpretable query)
+
+```json
+{
+  "status": "error",
+  "message": "Unable to interpret query"
+}
+```
+
+---
+
+### Seed Database
+
+```
+POST /api/seed
+```
+
+Seeds the database with 2026 profile records from the bundled JSON dataset. Safe to run multiple times — duplicate entries are prevented via name uniqueness checks.
+
+---
+
+## Database Schema
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | UUID v7 | Primary key |
+| `name` | string | Unique full name |
+| `gender` | string | `male` or `female` |
+| `gender_probability` | float | Gender confidence score |
+| `age` | int | Estimated age |
+| `age_group` | string | `child`, `teenager`, `adult`, `senior` |
+| `country_id` | string | ISO country code |
+| `country_name` | string | Full country name |
+| `country_probability` | float | Country confidence score |
+| `created_at` | timestamp (UTC) | Auto-generated |
+
+---
+
+## Response Format
+
+**Success**
+
+```json
+{
+  "status": "success",
+  ...
+}
+```
+
+**Error**
+
+```json
+{
+  "status": "error",
+  "message": "description"
+}
+```
+
+---
+
+## Project Structure
+
+```
+src/
+ ├── profiles/
+ │    ├── profiles.controller.ts
+ │    ├── profiles.service.ts
+ │    └── profiles.entity.ts
+ ├── seed/
+ │    ├── seed.controller.ts
+ │    ├── seed.service.ts
+ │    └── data/
+ └── app.module.ts
 ```
 
 ---
 
 ## CORS
 
-CORS is enabled for all origins:
+CORS is enabled globally:
 
 ```
 Access-Control-Allow-Origin: *
 ```
-
----
-
-## Database
-
-- **Database:** PostgreSQL
-- **ORM:** TypeORM
-- **Sync:** Auto-synchronization enabled (development)
 
 ---
 
@@ -278,6 +261,26 @@ npm run start:dev
 ```bash
 npm run build
 ```
+
+---
+
+## Limitations
+
+- Rule-based parsing only — no AI/ML or NLP model
+- English-only query support
+- Limited country vocabulary (5 predefined mappings)
+- Cannot handle ambiguous or conflicting phrases (e.g. `young seniors`)
+- Pagination hard-capped at 50 results per page
+
+---
+
+## Notes
+
+- All timestamps are in UTC ISO 8601 format
+- UUID v7 is used for all primary keys
+- Queries are optimized using TypeORM `QueryBuilder`
+- All filters are combinable with AND logic
+- Case-insensitive filtering is supported
 
 ---
 
