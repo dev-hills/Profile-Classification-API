@@ -20,6 +20,14 @@ export class ProfilesController {
     return this.service.create(dto.name);
   }
 
+  @Get('search')
+  searchProfiles(
+    @Query('q') q: string,
+    @Query() query: { page?: number; limit?: number },
+  ) {
+    return this.service.search(q, query);
+  }
+
   @Get(':id')
   getOne(@Param('id') id: string) {
     return this.service.findOne(id);

@@ -253,4 +253,86 @@ export class ProfilesService {
       status: 'success',
     };
   }
+
+  async search(q: string, query: { page?: number; limit?: number }) {
+    if (!q || q.trim() === '') {
+      throw new BadRequestException({
+        status: 'error',
+        message: 'Unable to interpret query',
+      });
+    }
+
+    const text = q.toLowerCase();
+
+    const filters: {
+      gender?: string;
+      country_id?: string;
+      min_age?: number;
+      max_age?: number;
+      age_group?: string;
+    } = {};
+
+    if (text.includes('male') && !text.includes('female')) {
+      filters.gender = 'male';
+    }
+
+    if (text.includes('female')) {
+      filters.gender = 'female';
+    }
+
+    const countryMap: Record<string, string> = {
+      nigeria: 'NG',
+      kenya: 'KE',
+      angola: 'AO',
+      benin: 'BJ',
+      ghana: 'GH',
+    };
+
+    for (const [name, code] of Object.entries(countryMap)) {
+      if (text.includes(name)) {
+        filters.country_id = code;
+        break;
+      }
+    }
+
+    if (text.includes('young')) {
+      filters.min_age = 16;
+      filters.max_age = 24;
+    }
+
+    if (text.includes('teenager') || text.includes('teens')) {
+      filters.age_group = 'teenager';
+    }
+
+    if (text.includes('adult')) {
+      filters.age_group = 'adult';
+    }
+
+    if (text.includes('senior')) {
+      filters.age_group = 'senior';
+    }
+
+    const minAgeMatch = text.match(/(?:over|above|more than|>)\s*(\d+)/i);
+    if (minAgeMatch) {
+      filters.min_age = Number(minAgeMatch[1]);
+    }
+
+    const maxAgeMatch = text.match(/(?:under|below|less than|<)\s*(\d+)/i);
+    if (maxAgeMatch) {
+      filters.max_age = Number(maxAgeMatch[1]);
+    }
+
+    if (Object.keys(filters).length === 0) {
+      throw new BadRequestException({
+        status: 'error',
+        message: 'Unable to interpret query',
+      });
+    }
+
+    return this.findAll({
+      ...filters,
+      page: query?.page,
+      limit: query?.limit,
+    });
+  }
 }
