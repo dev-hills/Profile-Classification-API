@@ -152,7 +152,22 @@ export class ProfilesService {
     gender?: string;
     country_id?: string;
     age_group?: string;
+    min_age?: number;
+    max_age?: number;
+    min_gender_probability?: number;
+    min_country_probability?: number;
+    sort_by?: 'age' | 'created_at' | 'gender_probability';
+    order?: 'asc' | 'desc';
+    page?: number;
+    limit?: number;
   }) {
+    const page = Math.max(Number(query.page) || 1, 1);
+    const limit = Math.min(Number(query.limit) || 10, 50);
+    const skip = (page - 1) * limit;
+
+    const order = query.order?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    const sortBy = query.sort_by || 'created_at';
+
     const qb = this.profileRepo.createQueryBuilder('profile');
 
     if (query.gender) {
@@ -173,18 +188,51 @@ export class ProfilesService {
       });
     }
 
-    const data = await qb.getMany();
+    if (query.min_age !== undefined) {
+      qb.andWhere('profile.age >= :min_age', {
+        min_age: query.min_age,
+      });
+    }
+
+    if (query.max_age !== undefined) {
+      qb.andWhere('profile.age <= :max_age', {
+        max_age: query.max_age,
+      });
+    }
+
+    if (query.min_gender_probability !== undefined) {
+      qb.andWhere('profile.gender_probability >= :min_gender_probability', {
+        min_gender_probability: query.min_gender_probability,
+      });
+    }
+
+    if (query.min_country_probability !== undefined) {
+      qb.andWhere('profile.country_probability >= :min_country_probability', {
+        min_country_probability: query.min_country_probability,
+      });
+    }
+
+    qb.orderBy(`profile.${sortBy}`, order);
+    qb.skip(skip).take(limit);
+
+    const [data, total] = await qb.getManyAndCount();
 
     return {
       status: 'success',
-      count: data.length,
+      page,
+      limit,
+      total,
       data: data.map((p) => ({
         id: p.id,
         name: p.name,
         gender: p.gender,
+        gender_probability: p.gender_probability,
         age: p.age,
         age_group: p.age_group,
         country_id: p.country_id,
+        country_name: p.country_name,
+        country_probability: p.country_probability,
+        created_at: p.created_at,
       })),
     };
   }
