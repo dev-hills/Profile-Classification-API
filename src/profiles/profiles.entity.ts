@@ -2,7 +2,7 @@ import { Entity, Column, PrimaryColumn } from 'typeorm';
 
 @Entity()
 export class Profile {
-  @PrimaryColumn()
+  @PrimaryColumn('uuid')
   id!: string;
 
   @Column({ unique: true })
@@ -15,9 +15,6 @@ export class Profile {
   gender_probability!: number;
 
   @Column()
-  sample_size!: number;
-
-  @Column()
   age!: number;
 
   @Column()
@@ -26,9 +23,15 @@ export class Profile {
   @Column()
   country_id!: string;
 
+  @Column()
+  country_name!: string;
+
   @Column('float')
   country_probability!: number;
 
-  @Column()
-  created_at!: string;
+  @Column({
+    type: 'timestamptz',
+    default: () => 'CURRENT_TIMESTAMP',
+  })
+  created_at!: Date;
 }

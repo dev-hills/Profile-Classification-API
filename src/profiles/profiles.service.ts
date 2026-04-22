@@ -102,7 +102,7 @@ export class ProfilesService {
       });
     }
 
-    const { gender, probability, count } = genderData;
+    const { gender, probability } = genderData;
     const { age } = ageData;
     const { country } = countryData;
 
@@ -116,7 +116,7 @@ export class ProfilesService {
       name,
       gender,
       gender_probability: probability,
-      sample_size: count,
+      // sample_size: count,
       age,
       age_group: this.getAgeGroup(age),
       country_id: topCountry.country_id,
