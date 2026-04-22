@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadGatewayException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Profile } from './profiles.entity';
 import { Repository } from 'typeorm';
@@ -41,127 +41,95 @@ export class ProfilesService {
   }
 
   async create(name: string) {
-    try {
-      if (!name || name.trim() === '') {
-        throw new BadRequestException({
-          status: 'error',
-          message: 'Name query parameter is required',
-        });
-      }
-
-      name = name.trim().toLowerCase();
-
-      const isValidName = /^[a-zA-Z]+$/.test(name);
-
-      if (!isValidName) {
-        throw new UnprocessableEntityException({
-          status: 'error',
-          message: 'Name must be a string',
-        });
-      }
-
-      const existing = await this.profileRepo.findOne({
-        where: { name },
+    if (!name || name.trim() === '') {
+      throw new BadRequestException({
+        status: 'error',
+        message: 'Name query parameter is required',
       });
+    }
 
-      if (existing) {
-        return {
-          status: 'success',
-          message: 'Profile already exists',
-          data: existing,
-        };
-      }
+    name = name.trim().toLowerCase();
 
-      const [genderRes, ageRes, nationalityRes] = await Promise.all([
-        axios.get<GenderizeResponse>(`https://api.genderize.io?name=${name}`),
-        axios.get<AgifyResponse>(`https://api.agify.io?name=${name}`),
-        axios.get<NationalizeResponse>(
-          `https://api.nationalize.io?name=${name}`,
-        ),
-      ]);
+    const isValidName = /^[a-zA-Z]+$/.test(name);
 
-      const genderData = genderRes.data;
-      const ageData = ageRes.data;
-      const countryData = nationalityRes.data;
-
-      if (!genderData.gender || genderData.count === 0) {
-        return {
-          status: 502,
-          message: 'Genderize returned an invalid response',
-        };
-      }
-
-      if (!ageData.age) {
-        return {
-          status: 502,
-          message: 'Agify returned an invalid response',
-        };
-      }
-
-      if (!countryData.country || countryData.country.length === 0) {
-        return {
-          status: 502,
-          message: 'Nationalize returned an invalid response',
-        };
-      }
-
-      const { gender, probability, count } = genderRes.data;
-      const { age } = ageRes.data;
-      const { country } = nationalityRes.data;
-
-      if (!gender || count === 0) {
-        return {
-          status: 'error',
-          message: 'No gender prediction available',
-        };
-      }
-
-      if (age === null || age === undefined) {
-        return {
-          status: 'error',
-          message: 'No age prediction available',
-        };
-      }
-
-      if (!country || country.length === 0) {
-        return {
-          status: 'error',
-          message: 'No country prediction available',
-        };
-      }
-
-      const topCountry = country.reduce(
-        (prev, curr) => (curr.probability > prev.probability ? curr : prev),
-        country[0],
-      );
-
-      const profile = this.profileRepo.create({
-        id: uuidv7(),
-        name,
-        gender,
-        gender_probability: probability,
-        sample_size: count,
-        age,
-        age_group: this.getAgeGroup(age),
-        country_id: topCountry.country_id,
-        country_probability: topCountry.probability,
-        created_at: new Date().toISOString(),
+    if (!isValidName) {
+      throw new UnprocessableEntityException({
+        status: 'error',
+        message: 'Name must be a string',
       });
+    }
 
-      await this.profileRepo.save(profile);
+    const existing = await this.profileRepo.findOne({
+      where: { name },
+    });
 
+    if (existing) {
       return {
         status: 'success',
-        data: profile,
-      };
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Internal server error';
-      return {
-        status: 'error',
-        message: errorMessage,
+        message: 'Profile already exists',
+        data: existing,
       };
     }
+
+    const [genderRes, ageRes, nationalityRes] = await Promise.all([
+      axios.get<GenderizeResponse>(`https://api.genderize.io?name=${name}`),
+      axios.get<AgifyResponse>(`https://api.agify.io?name=${name}`),
+      axios.get<NationalizeResponse>(`https://api.nationalize.io?name=${name}`),
+    ]);
+
+    const genderData = genderRes.data;
+    const ageData = ageRes.data;
+    const countryData = nationalityRes.data;
+
+    if (!genderData.gender || genderData.count === 0) {
+      throw new BadGatewayException({
+        status: 'error',
+        message: 'Genderize returned an invalid response',
+      });
+    }
+
+    if (ageData.age === null || ageData.age === undefined) {
+      throw new BadGatewayException({
+        status: 'error',
+        message: 'Agify returned an invalid response',
+      });
+    }
+
+    if (!countryData.country || countryData.country.length === 0) {
+      throw new BadGatewayException({
+        status: 'error',
+        message: 'Nationalize returned an invalid response',
+      });
+    }
+
+    const { gender, probability, count } = genderData;
+    const { age } = ageData;
+    const { country } = countryData;
+
+    const topCountry = country.reduce(
+      (prev, curr) => (curr.probability > prev.probability ? curr : prev),
+      country[0],
+    );
+
+    const profile = this.profileRepo.create({
+      id: uuidv7(),
+      name,
+      gender,
+      gender_probability: probability,
+      sample_size: count,
+      age,
+      age_group: this.getAgeGroup(age),
+      country_id: topCountry.country_id,
+      country_probability: topCountry.probability,
+      created_at: new Date().toISOString(),
+    });
+
+    await this.profileRepo.save(profile);
+
+    return {
+      status: 'success',
+      data: profile,
+    };
   }
 
   async findOne(id: string) {
