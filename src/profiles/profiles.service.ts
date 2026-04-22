@@ -8,6 +8,7 @@ import {
   BadRequestException,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { COUNTRY_MAP } from 'src/common/constants/country-map';
 
 type GenderizeResponse = {
   gender: string | null;
@@ -279,15 +280,7 @@ export class ProfilesService {
       filters.gender = 'female';
     }
 
-    const countryMap: Record<string, string> = {
-      nigeria: 'NG',
-      kenya: 'KE',
-      angola: 'AO',
-      benin: 'BJ',
-      ghana: 'GH',
-    };
-
-    for (const [name, code] of Object.entries(countryMap)) {
+    for (const [name, code] of Object.entries(COUNTRY_MAP)) {
       if (text.includes(name)) {
         filters.country_id = code;
         break;
