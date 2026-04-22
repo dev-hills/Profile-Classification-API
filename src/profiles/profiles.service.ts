@@ -116,7 +116,6 @@ export class ProfilesService {
       name,
       gender,
       gender_probability: probability,
-      // sample_size: count,
       age,
       age_group: this.getAgeGroup(age),
       country_id: topCountry.country_id,
