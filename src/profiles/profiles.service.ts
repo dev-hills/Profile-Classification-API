@@ -327,4 +327,93 @@ export class ProfilesService {
       limit: query?.limit,
     });
   }
+
+  async buildCsv(query: any) {
+    const page = Math.max(Number(query.page) || 1, 1);
+    const limit = Math.min(Number(query.limit) || 10, 50);
+    const skip = (page - 1) * limit;
+
+    const order = query.order?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    const sortBy = query.sort_by || 'created_at';
+    const qb = this.profileRepo.createQueryBuilder('profile');
+
+    if (query.gender) {
+      qb.andWhere('LOWER(profile.gender) = LOWER(:gender)', {
+        gender: query.gender,
+      });
+    }
+
+    if (query.country_id) {
+      qb.andWhere('LOWER(profile.country_id) = LOWER(:country_id)', {
+        country_id: query.country_id,
+      });
+    }
+
+    if (query.age_group) {
+      qb.andWhere('LOWER(profile.age_group) = LOWER(:age_group)', {
+        age_group: query.age_group,
+      });
+    }
+
+    if (query.min_age !== undefined) {
+      qb.andWhere('profile.age >= :min_age', {
+        min_age: query.min_age,
+      });
+    }
+
+    if (query.max_age !== undefined) {
+      qb.andWhere('profile.age <= :max_age', {
+        max_age: query.max_age,
+      });
+    }
+
+    if (query.min_gender_probability !== undefined) {
+      qb.andWhere('profile.gender_probability >= :min_gender_probability', {
+        min_gender_probability: query.min_gender_probability,
+      });
+    }
+
+    if (query.max_country_probability !== undefined) {
+      qb.andWhere('profile.country_probability >= :max_country_probability', {
+        max_country_probability: query.max_country_probability,
+      });
+    }
+
+    if (query.sort_by && query.order) {
+      qb.orderBy(`profile.${query.sort_by}`, query.order.toUpperCase());
+    }
+
+    qb.orderBy(`profile.${sortBy}`, order);
+    qb.skip(skip).take(limit);
+
+    const profiles = await qb.getMany();
+
+    const header =
+      'id,name,gender,gender_probability,age,age_group,country_id,country_name,country_probability,created_at';
+
+    const rows = profiles.map((p) => {
+      return [
+        p.id,
+        this.escapeCsv(p.name),
+        p.gender,
+        p.gender_probability,
+        p.age,
+        p.age_group,
+        p.country_id,
+        this.escapeCsv(p.country_name),
+        p.country_probability,
+        p.created_at?.toISOString(),
+      ].join(',');
+    });
+    return [header, ...rows].join('\n');
+  }
+
+  private escapeCsv(value: any) {
+    if (!value) return '';
+    const stringValue = String(value);
+    if (stringValue.includes(',') || stringValue.includes('"')) {
+      return `"${stringValue.replace(/"/g, '""')}"`;
+    }
+    return stringValue;
+  }
 }
